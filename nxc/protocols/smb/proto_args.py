@@ -54,6 +54,7 @@ def proto_args(parser, parents):
     mapping_enum_group.add_argument("--dir", nargs="?", type=str, const="", help="List the content of a path (default path: '%(const)s')")
     mapping_enum_group.add_argument("--interfaces", action="store_true", help="Enumerate network interfaces")
     mapping_enum_group.add_argument("--no-write-check", action="store_true", help="Skip write check on shares (avoid leaving traces when missing delete permissions)")
+    mapping_enum_group.add_argument("--shares-depth", type=int, default=0, metavar="DEPTH", help="Depth to check write permissions in subdirectories (default: 0, only root)")
     mapping_enum_group.add_argument("--filter-shares", nargs="+", help="Filter share by access, option 'READ' 'WRITE' or 'READ,WRITE'")
     mapping_enum_group.add_argument("--disks", action="store_true", help="Enumerate disks")
     mapping_enum_group.add_argument("--users", nargs="*", metavar="USER", help="Enumerate domain users, if a user is specified than only its information is queried.")

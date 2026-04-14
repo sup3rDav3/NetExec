@@ -1382,6 +1382,43 @@ class smb(connection):
         else:
             output(sessions)
 
+    def _check_subdir_write(self, share_name, path, depth, temp_dir_name):
+        """Recursively check write access in subdirectories up to specified depth."""
+        if depth == 0:
+            return []
+        writable = []
+        try:
+            search_path = path + "*" if path else "*"
+            entries = self.conn.listPath(share_name, search_path)
+        except SessionError:
+            return writable
+
+        for entry in entries:
+            if not entry.is_directory():
+                continue
+            name = entry.get_longname()
+            if name in [".", ".."]:
+                continue
+
+            subdir_path = f"{path}{name}\\" if path else f"{name}\\"
+            temp_path = ntpath.normpath("\\" + subdir_path + temp_dir_name)
+
+            try:
+                self.conn.createDirectory(share_name, temp_path)
+                with contextlib.suppress(SessionError):
+                    self.conn.deleteDirectory(share_name, temp_path)
+                writable.append(subdir_path.rstrip("\\"))
+                self.logger.debug(f"WRITE access confirmed in subdirectory: {subdir_path}")
+                continue
+            except SessionError:
+                pass
+
+            if depth > 1:
+                deeper = self._check_subdir_write(share_name, subdir_path, depth - 1, temp_dir_name)
+                writable.extend(deeper)
+
+        return writable
+
     def shares(self):
         temp_dir = ntpath.normpath("\\" + gen_random_string())
         temp_file = ntpath.normpath("\\" + gen_random_string() + ".txt")
@@ -1486,6 +1523,14 @@ class smb(connection):
                 if write_dir or write_file:
                     write = True
                     share_info["access"].append("WRITE")
+
+            # If root write check failed but we have read access, check subdirectories
+            if not write and read and write_check and self.args.shares_depth > 0:
+                writable_subdirs = self._check_subdir_write(share_name, "", self.args.shares_depth, gen_random_string())
+                if writable_subdirs:
+                    write = True
+                    for subdir in writable_subdirs:
+                        share_info["access"].append(f"WRITE ({subdir})")
 
             permissions.append(share_info)
 
